@@ -7,31 +7,25 @@ description: "A step-by-step guide for Hicap customers to integrate Claude Code 
 
 # Setting Up Claude Code Router with Hicap
 
-Welcome, Hicap customers! This guide will walk you through configuring the [Claude Code Router](https://github.com/anthropics/claude-code) to work seamlessly with the Hicap API for multi-model, multi-provider AI development.
+This guide walks you through configuring [Claude Code Router](https://github.com/musistudio/claude-code-router) to work with the Hicap API for multi-model, multi-provider AI development.
 
 ## Prerequisites
 
-- Node.js and pnpm installed
-- Access to the Claude Code Router repository
+- Node.js (v20+) installed
 - Your Hicap API key
 
-## 1. Install Claude Code Router
+## Installation
 
-Install the official npm package:
-
-```sh
-# Using pnpm (recommended)
-$ pnpm add -g musistudio/claude-code-router
-
-# Or using npm
-$ npm install -g @hicap-ai/claude-code-router
+```shell
+npm install -g @anthropic-ai/claude-code
+npm install -g @musistudio/claude-code-router
 ```
 
-This will install the `ccr` CLI globally. You do not need to clone the repo or build from source.
+This installs both `claude` and `ccr` CLI tools globally.
 
-## 2. Configure Hicap as a Provider
+## Configuration
 
-Edit your `~/.claude-code-router/config.json` (or the config for your deployment). Here’s a minimal working example:
+Create or edit `~/.claude-code-router/config.json`:
 
 ```json
 {
@@ -39,16 +33,16 @@ Edit your `~/.claude-code-router/config.json` (or the config for your deployment
   "LOG_LEVEL": "debug",
   "HOST": "127.0.0.1",
   "PORT": 3456,
-  "APIKEY": "<your_hicap_api_key>",
+  "APIKEY": "$HICAP_API_KEY",
   "API_TIMEOUT_MS": "600000",
   "transformers": [
-    { "path": "C:/Users/<your-user>/.claude-code-router/hicap-transformer.js" }
+    { "path": "~/.claude-code-router/hicap-transformer.js" }
   ],
   "Providers": [
     {
       "name": "hicap",
       "api_base_url": "https://api.hicap.ai/v1/chat/completions",
-      "api_key": "<your_hicap_api_key>",
+      "api_key": "$HICAP_API_KEY",
       "models": [
         "claude-opus-4.5",
         "claude-sonnet-4.5",
@@ -73,12 +67,31 @@ Edit your `~/.claude-code-router/config.json` (or the config for your deployment
 }
 ```
 
-- Replace `<your_hicap_api_key>` and `<your-user>` with your actual values.
-- The `transformers` array points to your local `hicap-transformer.js`.
+### Configuration Options
 
-## 3. Minimal Hicap Transformer
+| Option | Description |
+|--------|-------------|
+| `APIKEY` | Your Hicap API key (supports `$ENV_VAR` interpolation) |
+| `API_TIMEOUT_MS` | Request timeout in milliseconds |
+| `transformers` | Array of custom transformer paths |
+| `Providers` | Provider configurations with name, URL, key, and models |
+| `Router` | Model routing rules for different task types |
 
-Place this file at `~/.claude-code-router/hicap-transformer.js`:
+### Router Options
+
+| Route | Description |
+|-------|-------------|
+| `default` | General task model |
+| `background` | Background/smaller tasks |
+| `think` | Reasoning-heavy tasks |
+| `longContext` | Large context handling |
+| `longContextThreshold` | Token count trigger (default: 60000) |
+| `webSearch` | Web search tasks |
+| `image` | Image-related tasks |
+
+## Hicap Transformer
+
+Create `~/.claude-code-router/hicap-transformer.js`:
 
 ```js
 module.exports = class HicapTransformer {
@@ -117,37 +130,60 @@ module.exports = class HicapTransformer {
 };
 ```
 
-- This transformer simply injects your Hicap API key into every request.
-- No model-specific or "thinking" logic is needed—Claude Code Router and Hicap handle all model routing and features natively.
+This transformer injects the Hicap API key via the `api-key` header.
 
-## 4. Start the Router
+## Usage
 
-Start the router with:
+### Start the Router
 
-```sh
-$ ccr start
+```shell
+ccr start
 ```
 
-Or, for one-off commands:
+### Run Claude Code
 
-```sh
-$ npx @hicap-ai/claude-code-router start
+```shell
+ccr code "Write a Hello World in Python"
 ```
 
-## 5. Test Your Setup
+### Use Direct Claude Command
 
-Try a simple chat or code completion request using the Hicap provider and any supported model (e.g., `claude-opus-4.5`).
+```shell
+eval "$(ccr activate)"
+claude "Your prompt here"
+```
 
-If you see responses and no API errors, you’re ready to go!
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `ccr start` | Start the router server |
+| `ccr stop` | Stop the router server |
+| `ccr restart` | Restart after config changes |
+| `ccr status` | Check server status |
+| `ccr code` | Start Claude Code with router |
+| `ccr ui` | Open web-based configuration |
+| `ccr model` | Interactive CLI model selector |
+| `ccr preset list` | List available presets |
+
+## Supported Models
+
+Via Hicap, you have access to:
+
+| Provider | Models |
+|----------|--------|
+| Claude | claude-opus-4.5, claude-sonnet-4.5, claude-haiku-4.5 |
+| OpenAI | gpt-5.2, gpt-5.1 |
+| Google | gemini-3-pro-preview, gemini-3-flash-preview |
+
+## Troubleshooting
+
+1. **API Key Issues**: Ensure `HICAP_API_KEY` environment variable is set, or replace `$HICAP_API_KEY` with your actual key in config
+2. **Transformer Not Found**: Verify the path in `transformers` array is correct
+3. **Connection Errors**: Check that `ccr start` is running and port 3456 is available
 
 ---
 
-**Questions?**
-Reach out to Hicap support or open an issue in your Claude Code Router deployment repo.
+For the latest setup instructions, see: https://github.com/musistudio/claude-code-router
 
-Happy building!
-
-— Hicap Engineering
-For the latest setup instructions and code, see the public repository:
-
-https://github.com/musistudio/claude-code-router
+Questions? Reach out to Hicap support or open an issue in the repository.
