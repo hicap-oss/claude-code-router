@@ -20,14 +20,12 @@ Welcome, Hicap customers! This guide will walk you through configuring the [Clau
 Install the official npm package:
 
 ```sh
-# Using pnpm (recommended)
-$ pnpm add -g musistudio/claude-code-router
-
-# Or using npm
-$ npm install -g @hicap-ai/claude-code-router
+$ npm i -g @musistudio/claude-code-router
 ```
 
 This will install the `ccr` CLI globally. You do not need to clone the repo or build from source.
+
+run `ccr start` to initialize the application and generate a config.json for the application.
 
 ## 2. Configure Hicap as a Provider
 
@@ -126,12 +124,6 @@ Start the router with:
 
 ```sh
 $ ccr start
-```
-
-Or, for one-off commands:
-
-```sh
-$ npx @hicap-ai/claude-code-router start
 ```
 
 ## 5. Test Your Setup
