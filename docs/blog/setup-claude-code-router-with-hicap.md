@@ -186,4 +186,4 @@ Via Hicap, you have access to:
 
 For the latest setup instructions, see: https://github.com/musistudio/claude-code-router
 
-Questions? Reach out to Hicap support or open an issue in the repository.
+Questions? Reach out to [Hicap support](mailto:support@hicap.ai) or open an issue in the repository.
