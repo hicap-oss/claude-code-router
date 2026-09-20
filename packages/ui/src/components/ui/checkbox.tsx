@@ -1,30 +1,32 @@
-"use client"
+import * as React from "react";
+import { Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-import * as React from "react"
-import * as CheckboxPrimitives from "@radix-ui/react-checkbox"
-import { Check } from "lucide-react"
+export interface CheckboxProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "type"> {
+  onCheckedChange?: (checked: boolean) => void;
+}
 
-import { cn } from "@/lib/utils"
+const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
+  ({ checked = false, className, disabled, onChange, onCheckedChange, ...props }, ref) => (
+    <span className={cn("relative inline-flex h-4 w-4 shrink-0", className)}>
+      <input
+        aria-checked={checked}
+        checked={checked}
+        className="peer absolute inset-0 z-10 h-full w-full cursor-pointer appearance-none rounded border border-input bg-background outline-none transition-[border-color,background-color,box-shadow] checked:border-primary checked:bg-primary hover:border-muted-foreground/45 focus-visible:ring-2 focus-visible:ring-ring/25 disabled:cursor-not-allowed disabled:opacity-50"
+        disabled={disabled}
+        onChange={(event) => {
+          onChange?.(event);
+          onCheckedChange?.(event.target.checked);
+        }}
+        ref={ref}
+        type="checkbox"
+        {...props}
+      />
+      <Check className="pointer-events-none absolute left-1/2 top-1/2 z-20 h-3 w-3 -translate-x-1/2 -translate-y-1/2 text-primary-foreground opacity-0 transition-opacity peer-checked:opacity-100" />
+    </span>
+  )
+);
 
-const Checkbox = React.forwardRef<
-  React.ElementRef<typeof CheckboxPrimitives.Root>,
-  React.ComponentPropsWithoutRef<typeof CheckboxPrimitives.Root>
->(({ className, ...props }, ref) => (
-  <CheckboxPrimitives.Root
-    ref={ref}
-    className={cn(
-      "peer h-4 w-4 shrink-0 rounded-sm border border-primary ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground",
-      className
-    )}
-    {...props}
-  >
-    <CheckboxPrimitives.Indicator
-      className={cn("flex items-center justify-center text-current")}
-    >
-      <Check className="h-4 w-4" />
-    </CheckboxPrimitives.Indicator>
-  </CheckboxPrimitives.Root>
-))
-Checkbox.displayName = CheckboxPrimitives.Root.displayName
+Checkbox.displayName = "Checkbox";
 
-export { Checkbox }
+export { Checkbox };

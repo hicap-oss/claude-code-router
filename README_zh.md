@@ -1,676 +1,567 @@
-![](blog/images/claude-code-router-img.png)
+<div align="center">
 
-[![](https://img.shields.io/badge/%F0%9F%87%AC%F0%9F%87%A7-English-000aff?style=flat)](README.md)
-[![Discord](https://img.shields.io/badge/Discord-%235865F2.svg?&logo=discord&logoColor=white)](https://discord.gg/rdftVMaUcS)
-[![](https://img.shields.io/github/license/musistudio/claude-code-router)](https://github.com/musistudio/claude-code-router/blob/main/LICENSE)
-
-<hr>
-
-![](blog/images/sponsors/glm-zh.jpg)
-> GLM CODING PLAN 是专为AI编码打造的订阅套餐，每月最低仅需20元，即可在十余款主流AI编码工具如Claude Code、中畅享智谱旗舰模型GLM-4.7，为开发者提供顶尖的编码体验。   
-> 智谱AI为本软件提供了特别优惠，使用以下链接购买可以享受九折优惠：https://www.bigmodel.cn/claude-code?ic=RRVJPB5SII
-
-> [从CLI工具风格看工具渐进式披露](/blog/zh/从CLI工具风格看工具渐进式披露.md)
-
-> 一款强大的工具，可将 Claude Code 请求路由到不同的模型，并自定义任何请求。
-
-![](blog/images/claude-code.png)
-
-
-## ✨ 功能
-
--   **模型路由**: 根据您的需求将请求路由到不同的模型（例如，后台任务、思考、长上下文）。
--   **多提供商支持**: 支持 OpenRouter、DeepSeek、Ollama、Gemini、Volcengine 和 SiliconFlow 等各种模型提供商。
--   **请求/响应转换**: 使用转换器为不同的提供商自定义请求和响应。
--   **动态模型切换**: 在 Claude Code 中使用 `/model` 命令动态切换模型。
--   **GitHub Actions 集成**: 在您的 GitHub 工作流程中触发 Claude Code 任务。
--   **插件系统**: 使用自定义转换器扩展功能。
-
-## 🚀 快速入门
-
-### 1. 安装
-
-首先，请确保您已安装 [Claude Code](https://docs.anthropic.com/en/docs/claude-code/quickstart)：
-
-```shell
-npm install -g @anthropic-ai/claude-code
-```
-
-然后，安装 Claude Code Router：
-
-```shell
-npm install -g @musistudio/claude-code-router
-```
-
-### 2. 配置
-
-创建并配置您的 `~/.claude-code-router/config.json` 文件。有关更多详细信息，您可以参考 `config.example.json`。
-
-`config.json` 文件有几个关键部分：
-- **`PROXY_URL`** (可选): 您可以为 API 请求设置代理，例如：`"PROXY_URL": "http://127.0.0.1:7890"`。
-- **`LOG`** (可选): 您可以通过将其设置为 `true` 来启用日志记录。当设置为 `false` 时，将不会创建日志文件。默认值为 `true`。
-- **`LOG_LEVEL`** (可选): 设置日志级别。可用选项包括：`"fatal"`、`"error"`、`"warn"`、`"info"`、`"debug"`、`"trace"`。默认值为 `"debug"`。
-- **日志系统**: Claude Code Router 使用两个独立的日志系统：
-  - **服务器级别日志**: HTTP 请求、API 调用和服务器事件使用 pino 记录在 `~/.claude-code-router/logs/` 目录中，文件名类似于 `ccr-*.log`
-  - **应用程序级别日志**: 路由决策和业务逻辑事件记录在 `~/.claude-code-router/claude-code-router.log` 文件中
-- **`APIKEY`** (可选): 您可以设置一个密钥来进行身份验证。设置后，客户端请求必须在 `Authorization` 请求头 (例如, `Bearer your-secret-key`) 或 `x-api-key` 请求头中提供此密钥。例如：`"APIKEY": "your-secret-key"`。
-- **`HOST`** (可选): 您可以设置服务的主机地址。如果未设置 `APIKEY`，出于安全考虑，主机地址将强制设置为 `127.0.0.1`，以防止未经授权的访问。例如：`"HOST": "0.0.0.0"`。
-- **`NON_INTERACTIVE_MODE`** (可选): 当设置为 `true` 时，启用与非交互式环境（如 GitHub Actions、Docker 容器或其他 CI/CD 系统）的兼容性。这会设置适当的环境变量（`CI=true`、`FORCE_COLOR=0` 等）并配置 stdin 处理，以防止进程在自动化环境中挂起。例如：`"NON_INTERACTIVE_MODE": true`。
-- **`Providers`**: 用于配置不同的模型提供商。
-- **`Router`**: 用于设置路由规则。`default` 指定默认模型，如果未配置其他路由，则该模型将用于所有请求。
-- **`API_TIMEOUT_MS`**: API 请求超时时间，单位为毫秒。
-
-这是一个综合示例：
-
-```json
-{
-  "APIKEY": "your-secret-key",
-  "PROXY_URL": "http://127.0.0.1:7890",
-  "LOG": true,
-  "API_TIMEOUT_MS": 600000,
-  "NON_INTERACTIVE_MODE": false,
-  "Providers": [
-    {
-      "name": "openrouter",
-      "api_base_url": "https://openrouter.ai/api/v1/chat/completions",
-      "api_key": "sk-xxx",
-      "models": [
-        "google/gemini-2.5-pro-preview",
-        "anthropic/claude-sonnet-4",
-        "anthropic/claude-3.5-sonnet",
-        "anthropic/claude-3.7-sonnet:thinking"
-      ],
-      "transformer": {
-        "use": ["openrouter"]
-      }
-    },
-    {
-      "name": "deepseek",
-      "api_base_url": "https://api.deepseek.com/chat/completions",
-      "api_key": "sk-xxx",
-      "models": ["deepseek-chat", "deepseek-reasoner"],
-      "transformer": {
-        "use": ["deepseek"],
-        "deepseek-chat": {
-          "use": ["tooluse"]
-        }
-      }
-    },
-    {
-      "name": "ollama",
-      "api_base_url": "http://localhost:11434/v1/chat/completions",
-      "api_key": "ollama",
-      "models": ["qwen2.5-coder:latest"]
-    },
-    {
-      "name": "gemini",
-      "api_base_url": "https://generativelanguage.googleapis.com/v1beta/models/",
-      "api_key": "sk-xxx",
-      "models": ["gemini-2.5-flash", "gemini-2.5-pro"],
-      "transformer": {
-        "use": ["gemini"]
-      }
-    },
-    {
-      "name": "volcengine",
-      "api_base_url": "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
-      "api_key": "sk-xxx",
-      "models": ["deepseek-v3-250324", "deepseek-r1-250528"],
-      "transformer": {
-        "use": ["deepseek"]
-      }
-    },
-    {
-      "name": "modelscope",
-      "api_base_url": "https://api-inference.modelscope.cn/v1/chat/completions",
-      "api_key": "",
-      "models": ["Qwen/Qwen3-Coder-480B-A35B-Instruct", "Qwen/Qwen3-235B-A22B-Thinking-2507"],
-      "transformer": {
-        "use": [
-          [
-            "maxtoken",
-            {
-              "max_tokens": 65536
-            }
-          ],
-          "enhancetool"
-        ],
-        "Qwen/Qwen3-235B-A22B-Thinking-2507": {
-          "use": ["reasoning"]
-        }
-      }
-    },
-    {
-      "name": "dashscope",
-      "api_base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
-      "api_key": "",
-      "models": ["qwen3-coder-plus"],
-      "transformer": {
-        "use": [
-          [
-            "maxtoken",
-            {
-              "max_tokens": 65536
-            }
-          ],
-          "enhancetool"
-        ]
-      }
-    },
-    {
-      "name": "aihubmix",
-      "api_base_url": "https://aihubmix.com/v1/chat/completions",
-      "api_key": "sk-",
-      "models": [
-        "Z/glm-4.5",
-        "claude-opus-4-20250514",
-        "gemini-2.5-pro"
-      ]
-    }
-  ],
-  "Router": {
-    "default": "deepseek,deepseek-chat",
-    "background": "ollama,qwen2.5-coder:latest",
-    "think": "deepseek,deepseek-reasoner",
-    "longContext": "openrouter,google/gemini-2.5-pro-preview",
-    "longContextThreshold": 60000,
-    "webSearch": "gemini,gemini-2.5-flash"
-  }
-}
-```
-
-
-### 3. 使用 Router 运行 Claude Code
-
-使用 router 启动 Claude Code：
-
-```shell
-ccr code
-```
-
-> **注意**: 修改配置文件后，需要重启服务使配置生效：
-> ```shell
-> ccr restart
-> ```
-
-### 4. UI 模式
-
-为了获得更直观的体验，您可以使用 UI 模式来管理您的配置：
-
-```shell
-ccr ui
-```
-
-这将打开一个基于 Web 的界面，您可以在其中轻松查看和编辑您的 `config.json` 文件。
-
-![UI](/blog/images/ui.png)
-
-### 5. CLI 模型管理
-
-对于偏好终端工作流的用户，可以使用交互式 CLI 模型选择器：
-
-```shell
-ccr model
-```
-
-该命令提供交互式界面来：
-
-- 查看当前配置
-- 查看所有配置的模型（default、background、think、longContext、webSearch、image）
-- 切换模型：快速更改每个路由器类型使用的模型
-- 添加新模型：向现有提供商添加模型
-- 创建新提供商：设置完整的提供商配置，包括：
-   - 提供商名称和 API 端点
-   - API 密钥
-   - 可用模型
-   - Transformer 配置，支持：
-     - 多个转换器（openrouter、deepseek、gemini 等）
-     - Transformer 选项（例如，带自定义限制的 maxtoken）
-     - 特定于提供商的路由（例如，OpenRouter 提供商偏好）
-
-CLI 工具验证所有输入并提供有用的提示来引导您完成配置过程，使管理复杂的设置变得容易，无需手动编辑 JSON 文件。
-
-### 6. 预设管理
-
-预设允许您轻松保存、共享和重用配置。您可以将当前配置导出为预设，并从文件或 URL 安装预设。
-
-```shell
-# 将当前配置导出为预设
-ccr preset export my-preset
-
-# 使用元数据导出
-ccr preset export my-preset --description "我的 OpenAI 配置" --author "您的名字" --tags "openai,生产环境"
-
-# 从本地目录安装预设
-ccr preset install /path/to/preset
-
-# 列出所有已安装的预设
-ccr preset list
-
-# 显示预设信息
-ccr preset info my-preset
-
-# 删除预设
-ccr preset delete my-preset
-```
-
-**预设功能：**
-- **导出**：将当前配置保存为预设目录（包含 manifest.json）
-- **安装**：从本地目录安装预设
-- **敏感数据处理**：导出期间自动清理 API 密钥和其他敏感数据（标记为 `{{field}}` 占位符）
-- **动态配置**：预设可以包含输入架构，用于在安装期间收集所需信息
-- **版本控制**：每个预设包含版本元数据，用于跟踪更新
-
-**预设文件结构：**
-```
-~/.claude-code-router/presets/
-├── my-preset/
-│   └── manifest.json    # 包含配置和元数据
-```
-
-### 7. Activate 命令（环境变量设置）
-
-`activate` 命令允许您在 shell 中全局设置环境变量，使您能够直接使用 `claude` 命令或将 Claude Code Router 与使用 Agent SDK 构建的应用程序集成。
-
-要激活环境变量，请运行：
-
-```shell
-eval "$(ccr activate)"
-```
-
-此命令会以 shell 友好的格式输出必要的环境变量，这些变量将在当前的 shell 会话中设置。激活后，您可以：
-
-- **直接使用 `claude` 命令**：无需使用 `ccr code` 即可运行 `claude` 命令。`claude` 命令将自动通过 Claude Code Router 路由请求。
-- **与 Agent SDK 应用程序集成**：使用 Anthropic Agent SDK 构建的应用程序将自动使用配置的路由器和模型。
-
-`activate` 命令设置以下环境变量：
-
-- `ANTHROPIC_AUTH_TOKEN`: 来自配置的 API 密钥
-- `ANTHROPIC_BASE_URL`: 本地路由器端点（默认：`http://127.0.0.1:3456`）
-- `NO_PROXY`: 设置为 `127.0.0.1` 以防止代理干扰
-- `DISABLE_TELEMETRY`: 禁用遥测
-- `DISABLE_COST_WARNINGS`: 禁用成本警告
-- `API_TIMEOUT_MS`: 来自配置的 API 超时时间
-
-> **注意**：在使用激活的环境变量之前，请确保 Claude Code Router 服务正在运行（`ccr start`）。环境变量仅在当前 shell 会话中有效。要使其持久化，您可以将 `eval "$(ccr activate)"` 添加到您的 shell 配置文件（例如 `~/.zshrc` 或 `~/.bashrc`）中。
-
-#### Providers
-
-`Providers` 数组是您定义要使用的不同模型提供商的地方。每个提供商对象都需要：
-
--   `name`: 提供商的唯一名称。
--   `api_base_url`: 聊天补全的完整 API 端点。
--   `api_key`: 您提供商的 API 密钥。
--   `models`: 此提供商可用的模型名称列表。
--   `transformer` (可选): 指定用于处理请求和响应的转换器。
-
-#### Transformers
-
-Transformers 允许您修改请求和响应负载，以确保与不同提供商 API 的兼容性。
-
--   **全局 Transformer**: 将转换器应用于提供商的所有模型。在此示例中，`openrouter` 转换器将应用于 `openrouter` 提供商下的所有模型。
-    ```json
-     {
-       "name": "openrouter",
-       "api_base_url": "https://openrouter.ai/api/v1/chat/completions",
-       "api_key": "sk-xxx",
-       "models": [
-         "google/gemini-2.5-pro-preview",
-         "anthropic/claude-sonnet-4",
-         "anthropic/claude-3.5-sonnet"
-       ],
-       "transformer": { "use": ["openrouter"] }
-     }
-    ```
--   **特定于模型的 Transformer**: 将转换器应用于特定模型。在此示例中，`deepseek` 转换器应用于所有模型，而额外的 `tooluse` 转换器仅应用于 `deepseek-chat` 模型。
-    ```json
-     {
-       "name": "deepseek",
-       "api_base_url": "https://api.deepseek.com/chat/completions",
-       "api_key": "sk-xxx",
-       "models": ["deepseek-chat", "deepseek-reasoner"],
-       "transformer": {
-         "use": ["deepseek"],
-         "deepseek-chat": { "use": ["tooluse"] }
-       }
-     }
-    ```
-
--   **向 Transformer 传递选项**: 某些转换器（如 `maxtoken`）接受选项。要传递选项，请使用嵌套数组，其中第一个元素是转换器名称，第二个元素是选项对象。
-    ```json
-    {
-      "name": "siliconflow",
-      "api_base_url": "https://api.siliconflow.cn/v1/chat/completions",
-      "api_key": "sk-xxx",
-      "models": ["moonshotai/Kimi-K2-Instruct"],
-      "transformer": {
-        "use": [
-          [
-            "maxtoken",
-            {
-              "max_tokens": 16384
-            }
-          ]
-        ]
-      }
-    }
-    ```
-
-**可用的内置 Transformer：**
-
--   `Anthropic`: 如果你只使用这一个转换器，则会直接透传请求和响应(你可以用它来接入其他支持Anthropic端点的服务商)。
--   `deepseek`: 适配 DeepSeek API 的请求/响应。
--   `gemini`: 适配 Gemini API 的请求/响应。
--   `openrouter`: 适配 OpenRouter API 的请求/响应。它还可以接受一个 `provider` 路由参数，以指定 OpenRouter 应使用哪些底层提供商。有关更多详细信息，请参阅 [OpenRouter 文档](https://openrouter.ai/docs/features/provider-routing)。请参阅下面的示例：
-    ```json
-      "transformer": {
-        "use": ["openrouter"],
-        "moonshotai/kimi-k2": {
-          "use": [
-            [
-              "openrouter",
-              {
-                "provider": {
-                  "only": ["moonshotai/fp8"]
-                }
-              }
-            ]
-          ]
-        }
-      }
-    ```
--   `groq`: 适配 groq API 的请求/响应
--   `maxtoken`: 设置特定的 `max_tokens` 值。
--   `tooluse`: 优化某些模型的工具使用(通过`tool_choice`参数)。
--   `gemini-cli` (实验性): 通过 Gemini CLI [gemini-cli.js](https://gist.github.com/musistudio/1c13a65f35916a7ab690649d3df8d1cd) 对 Gemini 的非官方支持。
--   `reasoning`: 用于处理 `reasoning_content` 字段。
--   `sampling`: 用于处理采样信息字段，如 `temperature`、`top_p`、`top_k` 和 `repetition_penalty`。
--   `enhancetool`: 对 LLM 返回的工具调用参数增加一层容错处理（这会导致不再流式返回工具调用信息）。
--   `cleancache`: 清除请求中的 `cache_control` 字段。
--   `vertex-gemini`: 处理使用 vertex 鉴权的 gemini api。
--   `qwen-cli` (实验性): 通过 Qwen CLI [qwen-cli.js](https://gist.github.com/musistudio/f5a67841ced39912fd99e42200d5ca8b) 对 qwen3-coder-plus 的非官方支持。
--   `rovo-cli` (experimental): 通过 Atlassian Rovo Dev CLI [rovo-cli.js](https://gist.github.com/SaseQ/c2a20a38b11276537ec5332d1f7a5e53) 对 GPT-5 的非官方支持。
-
-**自定义 Transformer:**
-
-您还可以创建自己的转换器，并通过 `config.json` 中的 `transformers` 字段加载它们。
-
-```json
-{
-  "transformers": [
-      {
-        "path": "/User/xxx/.claude-code-router/plugins/gemini-cli.js",
-        "options": {
-          "project": "xxx"
-        }
-      }
-  ]
-}
-```
-
-#### Router
-
-`Router` 对象定义了在不同场景下使用哪个模型：
-
--   `default`: 用于常规任务的默认模型。
--   `background`: 用于后台任务的模型。这可以是一个较小的本地模型以节省成本。
--   `think`: 用于推理密集型任务（如计划模式）的模型。
--   `longContext`: 用于处理长上下文（例如，> 60K 令牌）的模型。
--   `longContextThreshold` (可选): 触发长上下文模型的令牌数阈值。如果未指定，默认为 60000。
--   `webSearch`: 用于处理网络搜索任务，需要模型本身支持。如果使用`openrouter`需要在模型后面加上`:online`后缀。
--   `image`(测试版): 用于处理图片类任务（采用CCR内置的agent支持），如果该模型不支持工具调用，需要将`config.forceUseImageAgent`属性设置为`true`。
-
-您还可以使用 `/model` 命令在 Claude Code 中动态切换模型：
-`/model provider_name,model_name`
-示例: `/model openrouter,anthropic/claude-3.5-sonnet`
-
-#### 自定义路由器
-
-对于更高级的路由逻辑，您可以在 `config.json` 中通过 `CUSTOM_ROUTER_PATH` 字段指定一个自定义路由器脚本。这允许您实现超出默认场景的复杂路由规则。
-
-在您的 `config.json` 中配置:
-
-```json
-{
-  "CUSTOM_ROUTER_PATH": "/User/xxx/.claude-code-router/custom-router.js"
-}
-```
-
-自定义路由器文件必须是一个导出 `async` 函数的 JavaScript 模块。该函数接收请求对象和配置对象作为参数，并应返回提供商和模型名称的字符串（例如 `"provider_name,model_name"`），如果返回 `null` 则回退到默认路由。
-
-这是一个基于 `custom-router.example.js` 的 `custom-router.js` 示例：
-
-```javascript
-// /User/xxx/.claude-code-router/custom-router.js
-
-/**
- * 一个自定义路由函数，用于根据请求确定使用哪个模型。
- *
- * @param {object} req - 来自 Claude Code 的请求对象，包含请求体。
- * @param {object} config - 应用程序的配置对象。
- * @returns {Promise<string|null>} - 一个解析为 "provider,model_name" 字符串的 Promise，如果返回 null，则使用默认路由。
- */
-module.exports = async function router(req, config) {
-  const userMessage = req.body.messages.find(m => m.role === 'user')?.content;
-
-  if (userMessage && userMessage.includes('解释这段代码')) {
-    // 为代码解释任务使用更强大的模型
-    return 'openrouter,anthropic/claude-3.5-sonnet';
-  }
-
-  // 回退到默认的路由配置
-  return null;
-};
-```
-
-##### 子代理路由
-
-对于子代理内的路由，您必须在子代理提示词的**开头**包含 `<CCR-SUBAGENT-MODEL>provider,model</CCR-SUBAGENT-MODEL>` 来指定特定的提供商和模型。这样可以将特定的子代理任务定向到指定的模型。
-
-**示例：**
-
-```
-<CCR-SUBAGENT-MODEL>openrouter,anthropic/claude-3.5-sonnet</CCR-SUBAGENT-MODEL>
-请帮我分析这段代码是否存在潜在的优化空间...
-```
-
-## Status Line (Beta)
-为了在运行时更好的查看claude-code-router的状态，claude-code-router在v1.0.40内置了一个statusline工具，你可以在UI中启用它，
-![statusline-config.png](/blog/images/statusline-config.png)
-
-效果如下：
-![statusline](/blog/images/statusline.png)
-
-## 🤖 GitHub Actions
-
-将 Claude Code Router 集成到您的 CI/CD 管道中。在设置 [Claude Code Actions](https://docs.anthropic.com/en/docs/claude-code/github-actions) 后，修改您的 `.github/workflows/claude.yaml` 以使用路由器：
-
-```yaml
-name: Claude Code
-
-on:
-  issue_comment:
-    types: [created]
-  # ... other triggers
-
-jobs:
-  claude:
-    if: |
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-      # ... other conditions
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: read
-      issues: read
-      id-token: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-
-      - name: Prepare Environment
-        run: |
-          curl -fsSL https://bun.sh/install | bash
-          mkdir -p $HOME/.claude-code-router
-          cat << 'EOF' > $HOME/.claude-code-router/config.json
-          {
-            "log": true,
-            "NON_INTERACTIVE_MODE": true,
-            "OPENAI_API_KEY": "${{ secrets.OPENAI_API_KEY }}",
-            "OPENAI_BASE_URL": "https://api.deepseek.com",
-            "OPENAI_MODEL": "deepseek-chat"
-          }
-          EOF
-        shell: bash
-
-      - name: Start Claude Code Router
-        run: |
-          nohup ~/.bun/bin/bunx @musistudio/claude-code-router@1.0.8 start &
-        shell: bash
-
-      - name: Run Claude Code
-        id: claude
-        uses: anthropics/claude-code-action@beta
-        env:
-          ANTHROPIC_BASE_URL: http://localhost:3456
-        with:
-          anthropic_api_key: "any-string-is-ok"
-```
-
-这种设置可以实现有趣的自动化，例如在非高峰时段运行任务以降低 API 成本。
-
-## 📝 深入阅读
-
--   [项目动机和工作原理](blog/zh/项目初衷及原理.md)
--   [也许我们可以用路由器做更多事情](blog/zh/或许我们能在Router中做更多事情.md)
-
-## ❤️ 支持与赞助
-
-如果您觉得这个项目有帮助，请考虑赞助它的开发。非常感谢您的支持！
-
-[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/F1F31GN2GM)
-
-[Paypal](https://paypal.me/musistudio1999)
-
-<table>
+<table width="100%">
   <tr>
-    <td><img src="/blog/images/alipay.jpg" width="200" alt="Alipay" /></td>
-    <td><img src="/blog/images/wechat.jpg" width="200" alt="WeChat Pay" /></td>
+    <td align="center">
+      <a href="https://www.kimi.com/code?aff=ccr">
+        <img src="https://gcdn.moonshot.cn/growth-cdn/sponsor/kimi-zh.png" width="960" alt="Kimi K2.7 Code 赞助横幅" />
+      </a>
+      <br />
+      <sub>
+        <a href="https://www.kimi.com/code?aff=ccr"><strong>Kimi Code 订阅</strong></a>
+        &nbsp;·&nbsp;
+        <a href="https://platform.kimi.com?aff=ccr"><strong>API 中文站</strong></a>
+        &nbsp;·&nbsp;
+        <a href="https://platform.kimi.ai?aff=ccr">API Global</a>
+      </sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="left">
+      <p>
+        <strong>感谢 Kimi 赞助本项目！</strong>Kimi K3 是 Moonshot AI 迄今能力最强的模型，也是全球首个开源 3T 级模型。K3 拥有 2.8T 参数、原生视觉能力与 100 万 Token 上下文，在长周期编码、知识工作和推理任务中展现前沿性能。在 CCR 中，Kimi 已作为内置供应商预设开箱即用：无论按量付费 API 还是 Kimi Code 订阅，一键导入即可将编程 Agent 的请求路由到 Kimi；订阅端点原生直通、无需协议转换，API 端点自动适配，账户余额与订阅用量也能直接在 CCR 面板中查看。
+      </p>
+      <p align="center">
+        CCR 已内置 Kimi 供应商预设。前往 Kimi 开放平台（<a href="https://platform.kimi.com?aff=ccr">中文站</a>｜<a href="https://platform.kimi.ai?aff=ccr">Global</a>）体验 API，或了解 <a href="https://www.kimi.com/code?aff=ccr">Kimi Code 订阅</a>。
+      </p>
+    </td>
   </tr>
 </table>
 
+</div>
+
+<div align="center">
+
+# Claude Code Router
+
+### 在一个地方，管理你所有的 Agent 与 Provider
+
+让 Claude Code、Claude Design、Codex、Grok CLI、Kimi CLI、Kilo Code、OpenCode、Pi、ZCode、WorkBuddy 和兼容 API 客户端连接你选择的供应商，并在一个应用里完成每次请求的路由、降级、增强与观测。
+
+<p>
+  <a href="#桌面端推荐"><img alt="下载桌面端" src="https://img.shields.io/badge/%E7%AB%8B%E5%8D%B3%E4%B8%8B%E8%BD%BD-%E6%A1%8C%E9%9D%A2%E5%AE%A2%E6%88%B7%E7%AB%AF-2563EB?style=for-the-badge&logo=github&logoColor=white" /></a>
+  <a href="#快速开始"><img alt="快速开始" src="https://img.shields.io/badge/%E7%AB%8B%E5%8D%B3%E4%BD%BF%E7%94%A8-%E5%BF%AB%E9%80%9F%E5%BC%80%E5%A7%8B-16A34A?style=for-the-badge&logo=rocket&logoColor=white" /></a>
+  <a href="https://ccrdesk.top/"><img alt="查看文档" src="https://img.shields.io/badge/%E6%B7%B1%E5%85%A5%E4%BA%86%E8%A7%A3-%E5%AE%8C%E6%95%B4%E6%96%87%E6%A1%A3-0F172A?style=for-the-badge&logo=readthedocs&logoColor=white" /></a>
+</p>
+
+<p>
+  <a href="README.md"><img alt="English README" src="https://img.shields.io/badge/%F0%9F%87%AC%F0%9F%87%A7-English-000aff?style=flat" /></a>
+  <a href="https://discord.gg/rdftVMaUcS"><img alt="Discord" src="https://img.shields.io/badge/Discord-%235865F2.svg?&logo=discord&logoColor=white" /></a>
+  <a href="https://x.com/musistudio2026"><img alt="X" src="https://img.shields.io/badge/X-@musistudio2026-000000?logo=x&logoColor=white" /></a>
+  <a href="https://github.com/musistudio/claude-code-router/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/musistudio/claude-code-router" /></a>
+</p>
+
+<br />
+
+<img src="blog/images/claude-code-router.png" width="820" alt="Claude Code Router 桌面端控制台" />
+
+</div>
+
+## 为什么使用 Claude Code Router？
+
+Claude Code Router（CCR）是面向编程 Agent 的本地模型网关与控制平面。它为 Claude Code、Claude Design、Codex、Grok CLI、Kimi CLI、Kilo Code、OpenCode、Pi、ZCode、WorkBuddy 和兼容 API 客户端提供**一个稳定的本地入口**，让你在一个地方管理入口背后的供应商、模型、账号、路由规则与工具。
+
+你可以使用 CCR：
+
+- **统一管理所有 Agent 与 Provider**，不再为每个客户端维护一套独立模型配置。
+- **切换供应商或模型而不改变工作流**，无需反复修改 Agent 配置文件。
+- **通过重试、凭据池、Key 轮换和 Fallback 保持请求可用**。
+- **通过 Fusion 视觉、联网搜索、MCP 工具和 ToolHub 扩展现有模型**。
+- **通过请求日志、最终路由、耗时、Token、成本估算和账号状态了解真实运行情况**。
+
+CCR 支持 OpenAI Chat / Responses、Anthropic Messages、Gemini Generate Content / Interactions、OpenRouter、DeepSeek、SiliconFlow、Moonshot、Kimi Code、Mistral、Z.AI、百炼以及自定义兼容供应商。
+
+<details open>
+<summary><strong>支持的 Agent</strong></summary>
+
+<div align="center">
+
+<table width="100%">
+  <tr>
+    <td align="center" width="20%">
+      <a href="https://github.com/anthropics/claude-code">
+        <img src="/packages/ui/src/assets/agent-logos/claude-code.png" width="44" height="44" alt="Claude Code 图标" />
+        <br />
+        <strong>Claude Code (CLI & APP)</strong>
+      </a>
+    </td>
+    <td align="center" width="20%">
+      <a href="https://github.com/openai/codex">
+        <img src="/packages/ui/src/assets/agent-logos/codex.png" width="44" height="44" alt="Codex 图标" />
+        <br />
+        <strong>Codex (CLI & APP)</strong>
+      </a>
+    </td>
+    <td align="center" width="20%">
+      <a href="https://github.com/xai-org/grok-build">
+        <img src="/packages/ui/src/assets/agent-logos/grok.ico" width="44" height="44" alt="Grok CLI 图标" />
+        <br />
+        <strong>Grok CLI (CLI)</strong>
+      </a>
+    </td>
+    <td align="center" width="20%">
+      <a href="https://github.com/MoonshotAI/kimi-cli">
+        <img src="/docs/public/provider-icons/moonshot.ico" width="44" height="44" alt="Kimi CLI 图标" />
+        <br />
+        <strong>Kimi CLI (CLI)</strong>
+      </a>
+    </td>
+    <td align="center" width="20%">
+      <a href="https://kilo.ai/">
+        <img src="/packages/ui/src/assets/agent-logos/kilo.svg" width="44" height="44" alt="Kilo Code 图标" />
+        <br />
+        <strong>Kilo Code (CLI)</strong>
+      </a>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="20%">
+      <a href="https://github.com/anomalyco/opencode">
+        <img src="/packages/ui/src/assets/agent-logos/opencode.ico" width="44" height="44" alt="OpenCode 图标" />
+        <br />
+        <strong>OpenCode (CLI & APP)</strong>
+      </a>
+    </td>
+    <td align="center" width="20%">
+      <a href="https://github.com/earendil-works/pi">
+        <img src="/packages/ui/src/assets/agent-logos/pi.svg" width="44" height="44" alt="Pi 图标" />
+        <br />
+        <strong>Pi (CLI)</strong>
+      </a>
+    </td>
+    <td align="center" width="20%">
+      <a href="https://zcode.z.ai/cn">
+        <img src="/packages/ui/src/assets/agent-logos/zcode.png" width="44" height="44" alt="ZCode 图标" />
+        <br />
+        <strong>ZCode (APP)</strong>
+      </a>
+    </td>
+    <td align="center" width="20%">
+      <a href="https://www.anthropic.com/news/claude-design-anthropic-labs">
+        <img src="/packages/ui/src/assets/agent-logos/claude-code.png" width="44" height="44" alt="Claude Design 图标" />
+        <br />
+        <strong>Claude Design (APP)</strong>
+      </a>
+    </td>
+    <td align="center" width="20%">
+      <a href="https://www.workbuddy.ai/">
+        <img src="/packages/ui/src/assets/agent-logos/workbuddy.png" width="44" height="44" alt="WorkBuddy 图标" />
+        <br />
+        <strong>WorkBuddy (APP)</strong>
+      </a>
+    </td>
+  </tr>
+</table>
+
+</div>
+
+</details>
+
+## 快速开始
+
+### 桌面端（推荐）
+
+1. <details open>
+   <summary><strong>下载 Claude Code Router，选择 macOS、Windows 或 Linux 版本并启动应用。</strong></summary>
+
+   <div align="center">
+
+   <table width="100%">
+     <tr>
+       <td align="center" width="330">
+         <a href="https://github.com/musistudio/claude-code-router/releases/download/v3.0.22/Claude-Code-Router_3.0.22.exe">
+           <img src="/docs/public/platform-icons/windows.png" width="44" height="44" alt="Windows 图标" />
+           <br />
+           <strong>Windows</strong>
+         </a>
+       </td>
+       <td align="center" width="330">
+         <a href="https://github.com/musistudio/claude-code-router/releases/download/v3.0.22/Claude-Code-Router_3.0.22.AppImage">
+           <img src="/docs/public/platform-icons/linux.png" width="44" height="44" alt="Linux 图标" />
+           <br />
+           <strong>Linux</strong>
+         </a>
+       </td>
+       <td align="center" width="330">
+         <a href="https://github.com/musistudio/claude-code-router/releases/download/v3.0.22/Claude-Code-Router_3.0.22-mac-Apple-Silicon-arm64.dmg">
+           <img src="/docs/public/platform-icons/macos.png" width="44" height="44" alt="macOS 图标" />
+           <br />
+           <strong>macOS (Apple Silicon)</strong>
+         </a>
+       </td>
+       <td align="center" width="330">
+         <a href="https://github.com/musistudio/claude-code-router/releases/download/v3.0.22/Claude-Code-Router_3.0.22-mac-Intel-x64.dmg">
+           <img src="/docs/public/platform-icons/macos.png" width="44" height="44" alt="macOS 图标" />
+           <br />
+           <strong>macOS (Intel)</strong>
+         </a>
+       </td>
+     </tr>
+   </table>
+
+   </div>
+
+   </details>
+
+2. 打开 **供应商 → 添加供应商**。选择内置预设或自定义端点，填写 API Key，选择协议与模型，然后保存。
+3. 打开 **服务** 并点击 **启动**。本地模型网关默认监听 `http://127.0.0.1:3456`。
+4. 打开 **Agent配置**，选择 Claude Code、Claude Design、Codex、Grok CLI、Kimi CLI、Kilo Code、OpenCode、Pi、ZCode 或 WorkBuddy，指定模型并应用配置档案。
+5. 开始使用 Agent。在 **日志** 中确认最终供应商、模型、状态、Token、耗时与错误。
+
+现在 Agent 已经连接到 CCR。如需增加条件规则、自动重试、请求改写或 Fallback 模型，请打开 **路由**。
+
+### CLI
+
+npm CLI 要求 Node.js 22 或更高版本。无需 Electron，也能启动相同的模型网关与浏览器管理界面：
+
+```sh
+npm install -g @musistudio/claude-code-router
+ccr ui
+```
+
+打开 `http://127.0.0.1:3458`，然后按照上面的 **供应商 → 服务 → Agent 配置档案** 流程操作。模型网关仍位于 `http://127.0.0.1:3456`。服务模式、鉴权和 Profile 命令见 [CLI 命令参考](https://ccrdesk.top/guides/cli/)。
+
+### Docker
+
+```sh
+npm run docker:compose:up
+```
+
+Docker 默认通过 `http://127.0.0.1:3458` 提供管理界面与网关路由。这个 npm 脚本会在存在 `../../next-ai/gateway` 时先准备本地支持插件的 ai-gateway runtime，再构建镜像。远程暴露 CCR 前，请先阅读 [Docker 部署指南](https://ccrdesk.top/guides/docker/)。
+
+## 构建桌面应用
+
+先安装 Node.js 22+，然后执行 `npm ci`。
+
+| 目标 | 命令 | 产物目录 |
+| --- | --- | --- |
+| macOS 本地 DMG/ZIP | `npm run build:app:mac` | `release-local/` |
+| Windows 本地 NSIS 安装包 | `npm run build:app:win` | `release-local/` |
+
+Windows App 打包必须在 Windows x64 上运行，因为 `better-sqlite3` 包含 Electron 原生模块，不能从 macOS 或 Linux 交叉编译。推送 `v*` tag 时，release workflow 会分别在 macOS runner 和 `windows-latest` 上构建 macOS 与 Windows 产物。
+
+## 工作方式
+
+```text
+Claude Code · Claude Design · Codex · Grok CLI · Kimi CLI · Kilo Code · OpenCode · Pi · ZCode · WorkBuddy · 兼容 API 客户端
+                              │
+                              ▼
+                 Claude Code Router :3456
+              配置档案 · 路由 · 凭据 · 工具 · 日志
+                              │
+                              ▼
+                  命中的供应商、模型与账号
+```
+
+## 核心能力
+
+| 能力领域 | 功能亮点 |
+| --- | --- |
+| **Agent** | Claude Code、Claude Design、Codex、Grok CLI、Kimi CLI、Kilo Code、OpenCode、Pi、ZCode 和 WorkBuddy 配置档案；模型覆盖；作用范围；环境变量；CLI / App 启动入口；多开工作流 |
+| **供应商** | 内置预设和自定义端点；协议探测；模型发现；连通性检测；按支持情况导入本机登录态；单 Key 与凭据池 |
+| **模型与路由** | 可搜索模型目录；用于任务选择的模型描述；Header / Body 条件；模型前缀；请求改写；重试；有序 Fallback |
+| **工具与扩展** | Fusion 模型；ToolHub；内置浏览器自动化；Chrome 登录态导入；wrapper / core gateway plugin；本地路由与虚拟模型 |
+| **访问与额度** | 独立的 CCR 客户端 Key，可设置有效期以及本地请求、Token 和图片限额 |
+| **日志与观测** | 请求 / 响应详情；最终供应商、模型与凭据；状态；耗时；Token；成本估算；工具调用；Agent 执行链路 |
+| **AgentClaw** | 通过微信 iLink、企业微信、Slack、Discord、Telegram、LINE、飞书和钉钉接力 Agent |
+
+## 准备好后，继续深入
+
+完整文档位于 **[ccrdesk.top](https://ccrdesk.top/)**。
+
+- [安装并启动 CCR](https://ccrdesk.top/guides/install/)
+- [配置供应商](https://ccrdesk.top/guides/provider/)
+- [了解路由与完整配置](https://ccrdesk.top/configuration/)
+- [使用 CLI](https://ccrdesk.top/guides/cli/)
+- [通过 Docker 部署](https://ccrdesk.top/guides/docker/)
+- [排查常见问题](https://ccrdesk.top/troubleshooting/)
+
+## 支持与赞助
+
+<div align="center">
+
+<p>如果你觉得这个项目有帮助，欢迎赞助项目开发。非常感谢你的支持。</p>
+
+<table>
+  <tr>
+    <td align="center" width="220">
+      <a href="https://ko-fi.com/F1F31GN2GM">
+        <img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="通过 Ko-fi 赞助" />
+      </a>
+      <br />
+      <sub>通过 Ko-fi 单次赞助</sub>
+    </td>
+    <td align="center" width="220">
+      <a href="https://paypal.me/musistudio1999">
+        <img src="https://img.shields.io/badge/PayPal-Sponsor-003087?logo=paypal&logoColor=white" alt="通过 PayPal 赞助" />
+      </a>
+      <br />
+      <sub>国际赞助通道</sub>
+    </td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <td align="center" width="220">
+      <strong>支付宝</strong>
+      <br />
+      <img src="/blog/images/alipay.jpg" width="160" alt="支付宝收款码" />
+    </td>
+    <td align="center" width="220">
+      <strong>微信支付</strong>
+      <br />
+      <img src="/blog/images/wechat.jpg" width="160" alt="微信支付收款码" />
+    </td>
+  </tr>
+</table>
+
+</div>
+
 ### 我们的赞助商
 
-非常感谢所有赞助商的慷慨支持！
+<div align="center">
 
-- [AIHubmix](https://aihubmix.com/)
-- [BurnCloud](https://ai.burncloud.com)
-- [302.AI](https://share.302.ai/ZGVF9w)
-- [Z智谱](https://www.bigmodel.cn/claude-code?ic=FPF9IVAGFJ)
-- @Simon Leischnig
-- [@duanshuaimin](https://github.com/duanshuaimin)
-- [@vrgitadmin](https://github.com/vrgitadmin)
-- @*o
-- [@ceilwoo](https://github.com/ceilwoo)
-- @*说
-- @*更
-- @K*g
-- @R*R
-- [@bobleer](https://github.com/bobleer)
-- @*苗
-- @*划
-- [@Clarence-pan](https://github.com/Clarence-pan)
-- [@carter003](https://github.com/carter003)
-- @S*r
-- @*晖
-- @*敏
-- @Z*z
-- @*然
-- [@cluic](https://github.com/cluic)
-- @*苗
-- [@PromptExpert](https://github.com/PromptExpert)
-- @*应
-- [@yusnake](https://github.com/yusnake)
-- @*飞
-- @董*
-- @*汀
-- @*涯
-- @*:-）
-- @**磊
-- @*琢
-- @*成
-- @Z*o
-- @\*琨
-- [@congzhangzh](https://github.com/congzhangzh)
-- @*_
-- @Z\*m
-- @*鑫
-- @c\*y
-- @\*昕
-- [@witsice](https://github.com/witsice)
-- @b\*g
-- @\*亿
-- @\*辉
-- @JACK 
-- @\*光
-- @W\*l
-- [@kesku](https://github.com/kesku)
-- [@biguncle](https://github.com/biguncle)
-- @二吉吉
-- @a\*g
-- @\*林
-- @\*咸
-- @\*明
-- @S\*y
-- @f\*o
-- @\*智
-- @F\*t
-- @r\*c
-- [@qierkang](http://github.com/qierkang)
-- @\*军
-- [@snrise-z](http://github.com/snrise-z)
-- @\*王
-- [@greatheart1000](http://github.com/greatheart1000)
-- @\*王
-- @zcutlip
-- [@Peng-YM](http://github.com/Peng-YM)
-- @\*更
-- @\*.
-- @F\*t
-- @\*政
-- @\*铭
-- @\*叶
-- @七\*o
-- @\*青
-- @\*\*晨
-- @\*远
-- @\*霄
-- @\*\*吉
-- @\*\*飞
-- @\*\*驰
-- @x\*g
-- @\*\*东
-- @\*落
-- @哆\*k
-- @\*涛
-- [@苗大](https://github.com/WitMiao)
-- @\*呢
-- @\d*u
-- @crizcraig
-- s\*s
-- \*火
-- \*勤
-- \*\*锟
-- \*涛
-- \*\*明
-- \*知
-- \*语
-- \*瓜
+<p>非常感谢所有赞助商的慷慨支持。</p>
 
-（如果您的名字被屏蔽，请通过我的主页电子邮件与我联系，以便使用您的 GitHub 用户名进行更新。）
+<table width="100%">
+  <tr>
+    <td align="center" width="330">
+      <a href="https://www.bigmodel.cn/claude-code?ic=FPF9IVAGFJ">
+        <img src="/docs/public/provider-icons/zhipu-cn-general.png" width="42" height="42" alt="智谱图标" />
+        <br />
+        <strong>Z智谱</strong>
+      </a>
+    </td>
+    <td align="center" width="330">
+      <a href="https://aihubmix.com/">
+        <img src="https://www.google.com/s2/favicons?domain=aihubmix.com&amp;sz=128" width="42" height="42" alt="AIHubmix 图标" />
+        <br />
+        <strong>AIHubmix</strong>
+      </a>
+    </td>
+    <td align="center" width="330">
+      <a href="https://ai.burncloud.com">
+        <img src="https://www.burncloud.com/favicon.png" width="42" height="42" alt="BurnCloud 图标" />
+        <br />
+        <strong>BurnCloud</strong>
+      </a>
+    </td>
+    <td align="center" width="330">
+      <a href="https://share.302.ai/ZGVF9w">
+        <img src="https://www.google.com/s2/favicons?domain=302.ai&amp;sz=128" width="42" height="42" alt="302.AI 图标" />
+        <br />
+        <strong>302.AI</strong>
+      </a>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="330">
+      <a href="https://runapi.co/register?aff=IX1t">
+        <img src="/docs/public/provider-icons/runapi.jpg" width="42" height="42" alt="RunAPI 图标" />
+        <br />
+        <strong>RunAPI</strong>
+      </a>
+    </td>
+    <td align="center" width="330">
+      <a href="https://teamorouter.com/">
+        <img src="/docs/public/provider-icons/teamorouter.png" width="42" height="42" alt="TeamoRouter 图标" />
+        <br />
+        <strong>TeamoRouter</strong>
+      </a>
+    </td>
+    <td align="center" width="330">
+      <a href="https://code0.ai/agent/register/9n9jOsSnYQoemIVL?utm_source=claudecoderouter&amp;utm_medium=partner&amp;utm_campaign=claudecoderouter_2026&amp;utm_content=default">
+        <img src="/docs/public/provider-icons/code0.png" width="42" height="42" alt="code0.ai 图标" />
+        <br />
+        <strong>code0.ai</strong>
+      </a>
+    </td>
+    <td align="center" width="330">
+      <a href="https://console.claudeapi.com/agent/register/LbmB7Y9kPloyzhwF?utm_source=claudecoderouter&amp;utm_medium=partner&amp;utm_campaign=claudecoderouter_2026&amp;utm_content=default">
+        <img src="/docs/public/provider-icons/claudeapi.png" width="42" height="42" alt="claudeapi 图标" />
+        <br />
+        <strong>claudeapi</strong>
+      </a>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="330">
+      <a href="https://s.qiniu.com/AVjMVf">
+        <img src="/docs/public/provider-icons/qiniu-ai.png" width="42" height="42" alt="七牛云 AI 图标" />
+        <br />
+        <strong>七牛云 AI</strong>
+      </a>
+    </td>
+    <td align="center" width="330">
+      <a href="https://api.fenno.ai/register?redirect=/purchase?tab=subscription%26group=16&amp;aff=9HHHAB5QLAES">
+        <img src="/docs/public/provider-icons/fenno.jpg" width="42" height="42" alt="Fenno.ai 图标" />
+        <br />
+        <strong>Fenno.ai</strong>
+      </a>
+    </td>
+    <td align="center" width="330">
+      <a href="https://unity2.ai/register?source=claudecoderouter">
+        <img src="/docs/public/provider-icons/unity2.jpg" width="42" height="42" alt="Unity2.Ai 图标" />
+        <br />
+        <strong>Unity2.Ai</strong>
+      </a>
+    </td>
+    <td align="center" width="330">
+      <a href="https://www.infistar.cc/register?aff=CCRCCR&ref_source=link">
+        <img src="/docs/public/provider-icons/infistar-ai.jpg" width="42" height="42" alt="无限星河图标" />
+        <br />
+        <strong>无限星河</strong>
+      </a>
+    </td>
+  </tr>
+</table>
 
+<h4>社区赞助者</h4>
 
-## 交流群
-<img src="/blog/images/wechat_group.jpg" width="200" alt="wechat_group" />
+<table width="100%">
+  <tr>
+    <td align="center" width="220">@Simon Leischnig</td>
+    <td align="center" width="220"><a href="https://github.com/duanshuaimin">@duanshuaimin</a></td>
+    <td align="center" width="220"><a href="https://github.com/vrgitadmin">@vrgitadmin</a></td>
+    <td align="center" width="220">@*o</td>
+    <td align="center" width="220"><a href="https://github.com/ceilwoo">@ceilwoo</a></td>
+    <td align="center" width="220">@*说</td>
+  </tr>
+  <tr>
+    <td align="center" width="220">@*更</td>
+    <td align="center" width="220">@K*g</td>
+    <td align="center" width="220">@R*R</td>
+    <td align="center" width="220"><a href="https://github.com/bobleer">@bobleer</a></td>
+    <td align="center" width="220">@*苗</td>
+    <td align="center" width="220">@*划</td>
+  </tr>
+  <tr>
+    <td align="center" width="220"><a href="https://github.com/Clarence-pan">@Clarence-pan</a></td>
+    <td align="center" width="220"><a href="https://github.com/carter003">@carter003</a></td>
+    <td align="center" width="220">@S*r</td>
+    <td align="center" width="220">@*晖</td>
+    <td align="center" width="220">@*敏</td>
+    <td align="center" width="220">@Z*z</td>
+  </tr>
+  <tr>
+    <td align="center" width="220">@*然</td>
+    <td align="center" width="220"><a href="https://github.com/cluic">@cluic</a></td>
+    <td align="center" width="220">@*苗</td>
+    <td align="center" width="220"><a href="https://github.com/PromptExpert">@PromptExpert</a></td>
+    <td align="center" width="220">@*应</td>
+    <td align="center" width="220"><a href="https://github.com/yusnake">@yusnake</a></td>
+  </tr>
+  <tr>
+    <td align="center" width="220">@*飞</td>
+    <td align="center" width="220">@董*</td>
+    <td align="center" width="220">@*汀</td>
+    <td align="center" width="220">@*涯</td>
+    <td align="center" width="220">@*:-）</td>
+    <td align="center" width="220">@**磊</td>
+  </tr>
+  <tr>
+    <td align="center" width="220">@*琢</td>
+    <td align="center" width="220">@*成</td>
+    <td align="center" width="220">@Z*o</td>
+    <td align="center" width="220">@*琨</td>
+    <td align="center" width="220"><a href="https://github.com/congzhangzh">@congzhangzh</a></td>
+    <td align="center" width="220">@*_</td>
+  </tr>
+  <tr>
+    <td align="center" width="220">@Z*m</td>
+    <td align="center" width="220">@*鑫</td>
+    <td align="center" width="220">@c*y</td>
+    <td align="center" width="220">@*昕</td>
+    <td align="center" width="220"><a href="https://github.com/witsice">@witsice</a></td>
+    <td align="center" width="220">@b*g</td>
+  </tr>
+  <tr>
+    <td align="center" width="220">@*亿</td>
+    <td align="center" width="220">@*辉</td>
+    <td align="center" width="220">@JACK</td>
+    <td align="center" width="220">@*光</td>
+    <td align="center" width="220">@W*l</td>
+    <td align="center" width="220"><a href="https://github.com/kesku">@kesku</a></td>
+  </tr>
+  <tr>
+    <td align="center" width="220"><a href="https://github.com/biguncle">@biguncle</a></td>
+    <td align="center" width="220">@二吉吉</td>
+    <td align="center" width="220">@a*g</td>
+    <td align="center" width="220">@*林</td>
+    <td align="center" width="220">@*咸</td>
+    <td align="center" width="220">@*明</td>
+  </tr>
+  <tr>
+    <td align="center" width="220">@S*y</td>
+    <td align="center" width="220">@f*o</td>
+    <td align="center" width="220">@*智</td>
+    <td align="center" width="220">@F*t</td>
+    <td align="center" width="220">@r*c</td>
+    <td align="center" width="220"><a href="https://github.com/qierkang">@qierkang</a></td>
+  </tr>
+  <tr>
+    <td align="center" width="220">@*军</td>
+    <td align="center" width="220"><a href="https://github.com/snrise-z">@snrise-z</a></td>
+    <td align="center" width="220">@*王</td>
+    <td align="center" width="220"><a href="https://github.com/greatheart1000">@greatheart1000</a></td>
+    <td align="center" width="220">@*王</td>
+    <td align="center" width="220">@zcutlip</td>
+  </tr>
+  <tr>
+    <td align="center" width="220"><a href="https://github.com/Peng-YM">@Peng-YM</a></td>
+    <td align="center" width="220">@*更</td>
+    <td align="center" width="220">@*.</td>
+    <td align="center" width="220">@F*t</td>
+    <td align="center" width="220">@*政</td>
+    <td align="center" width="220">@*铭</td>
+  </tr>
+  <tr>
+    <td align="center" width="220">@*叶</td>
+    <td align="center" width="220">@七*o</td>
+    <td align="center" width="220">@*青</td>
+    <td align="center" width="220">@**晨</td>
+    <td align="center" width="220">@*远</td>
+    <td align="center" width="220">@*霄</td>
+  </tr>
+  <tr>
+    <td align="center" width="220">@**吉</td>
+    <td align="center" width="220">@**飞</td>
+    <td align="center" width="220">@**驰</td>
+    <td align="center" width="220">@x*g</td>
+    <td align="center" width="220">@**东</td>
+    <td align="center" width="220">@*落</td>
+  </tr>
+  <tr>
+    <td align="center" width="220">@哆*k</td>
+    <td align="center" width="220">@*涛</td>
+    <td align="center" width="220"><a href="https://github.com/WitMiao">@苗大</a></td>
+    <td align="center" width="220">@*呢</td>
+    <td align="center" width="220">@d*u</td>
+    <td align="center" width="220">@crizcraig</td>
+  </tr>
+  <tr>
+    <td align="center" width="220">s*s</td>
+    <td align="center" width="220">*火</td>
+    <td align="center" width="220">*勤</td>
+    <td align="center" width="220">**锟</td>
+    <td align="center" width="220">*涛</td>
+    <td align="center" width="220">**明</td>
+  </tr>
+  <tr>
+    <td align="center" width="220">*知</td>
+    <td align="center" width="220">*语</td>
+    <td align="center" width="220">*瓜</td>
+    <td align="center" width="220">**新</td>
+    <td align="center" width="220"></td>
+    <td align="center" width="220"></td>
+  </tr>
+</table>
+
+<sub>如果你的名字被打码，请通过我的主页邮箱联系我更新为 GitHub 用户名。</sub>
+
+</div>
+
+## 许可证
+
+本项目基于 [MIT License](LICENSE) 发布。

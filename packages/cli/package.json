@@ -1,35 +1,50 @@
 {
-  "name": "@CCR/cli",
-  "version": "2.0.0",
-  "description": "CLI for Claude Code Router",
+  "name": "@musistudio/claude-code-router",
+  "version": "3.1.1",
+  "license": "MIT",
+  "description": "Local Claude Code Router gateway with CLI and web management UI.",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/musistudio/claude-code-router.git"
+  },
+  "bugs": {
+    "url": "https://github.com/musistudio/claude-code-router/issues"
+  },
+  "homepage": "https://github.com/musistudio/claude-code-router#readme",
+  "keywords": [
+    "claude-code",
+    "codex",
+    "llm",
+    "gateway",
+    "router"
+  ],
+  "main": "dist/main/cli.js",
   "bin": {
-    "ccr": "dist/cli.js"
+    "ccr": "dist/main/cli.js"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md",
+    "README_zh.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
-    "build": "node ../../scripts/build-cli.js",
-    "dev": "ts-node src/cli.ts"
+    "prepack": "npm --prefix ../.. run models:update && npm --prefix ../.. run build:assets",
+    "prepublishOnly": "npm --prefix ../.. run typecheck",
+    "test": "node ../../build/test.mjs cli && node ../../build/run-tests.mjs cli",
+    "test:integration": "node ../../build/test.mjs cli --scope integration && node ../../build/run-tests.mjs cli"
   },
-  "keywords": [
-    "claude",
-    "code",
-    "router",
-    "cli"
-  ],
-  "author": "musistudio",
-  "license": "MIT",
-  "devDependencies": {
-    "@CCR/server": "workspace:*",
-    "@CCR/shared": "workspace:*",
-    "@inquirer/prompts": "^5.0.0",
-    "@types/archiver": "^7.0.0",
-    "@types/node": "^24.0.15",
-    "adm-zip": "^0.5.16",
-    "archiver": "^7.0.1",
-    "esbuild": "^0.25.1",
-    "find-process": "^2.0.0",
-    "minimist": "^1.2.8",
-    "openurl": "^1.1.1",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.8.2"
+  "dependencies": {
+    "@the-next-ai/ai-gateway": "^1.0.21",
+    "@the-next-ai/bot-gateway-sdk": "^0.1.0",
+    "better-sqlite3": "^12.11.1",
+    "node-forge": "^1.4.0",
+    "undici": "^7.29.0"
   }
 }

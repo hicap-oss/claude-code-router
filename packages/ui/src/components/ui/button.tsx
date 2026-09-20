@@ -1,57 +1,60 @@
-import * as React from "react"
-import { Slot } from "@radix-ui/react-slot"
-import { cva, type VariantProps } from "class-variance-authority"
+import * as React from "react";
+import { cn } from "@/lib/utils";
 
-import { cn } from "@/lib/utils"
-
-const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
-  {
-    variants: {
-      variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
-        destructive:
-          "border border-destructive/50 text-destructive hover:bg-destructive hover:text-destructive-foreground",
-        outline:
-          "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
-        secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
-      },
-      size: {
-        default: "h-10 px-4 py-2",
-        sm: "h-9 rounded-md px-3",
-        lg: "h-11 rounded-md px-8",
-        icon: "h-10 w-10",
-      },
-    },
-    defaultVariants: {
-      variant: "default",
-      size: "default",
-    },
-  }
-)
+type ButtonVariant = "default" | "destructive" | "ghost" | "outline" | "secondary" | "subtle";
+type ButtonSize = "default" | "icon" | "iconSm" | "sm";
 
 export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {
-  asChild?: boolean
+  extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "color" | "size"> {
+  size?: ButtonSize;
+  unstyled?: boolean;
+  variant?: ButtonVariant;
+}
+
+function buttonVariants({
+  className,
+  size = "default",
+  variant = "default"
+}: {
+  className?: string;
+  size?: ButtonSize;
+  variant?: ButtonVariant;
+}) {
+  return cn(
+    "inline-flex shrink-0 select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-md border text-[13px] font-medium leading-4 outline-none transition-[background-color,border-color,color,box-shadow] duration-150 focus-visible:ring-2 focus-visible:ring-ring/25 disabled:pointer-events-none disabled:opacity-45",
+    variant === "default" && "border-primary/70 bg-primary text-primary-foreground shadow-[0_1px_2px_rgba(15,118,110,0.2),inset_0_1px_0_rgba(255,255,255,0.14)] hover:border-primary hover:bg-primary/90 active:bg-primary/80",
+    variant === "secondary" && "border-border bg-secondary text-secondary-foreground shadow-[0_1px_1px_rgba(0,0,0,.04)] hover:bg-muted",
+    variant === "ghost" && "border-transparent bg-transparent text-muted-foreground hover:bg-muted/70 hover:text-foreground",
+    variant === "outline" && "border-input bg-background text-foreground shadow-[0_1px_1px_rgba(0,0,0,.03)] hover:border-muted-foreground/45 hover:bg-muted/55",
+    variant === "destructive" && "border-destructive/80 bg-destructive text-destructive-foreground hover:bg-destructive/90 active:bg-destructive/80",
+    variant === "subtle" && "border-transparent bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground",
+    size === "sm" && "h-7 px-2 text-[12px]",
+    size === "default" && "h-8 px-3",
+    size === "icon" && "h-8 w-8 px-0",
+    size === "iconSm" && "h-7 w-7 px-0",
+    className
+  );
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
-    const Comp = asChild ? Slot : "button"
-    return (
-      <Comp
-        className={cn(buttonVariants({ variant, size, className }))}
-        ref={ref}
-        {...props}
-      />
-    )
-  }
-)
-Button.displayName = "Button"
+  ({ children, className, size = "default", type, unstyled = false, variant = "default", ...props }, ref) => {
+    if (unstyled) {
+      return <button className={className} ref={ref} type={type ?? "button"} {...props}>{children}</button>;
+    }
 
-// eslint-disable-next-line react-refresh/only-export-components
-export { Button, buttonVariants }
+    return (
+      <button
+        className={buttonVariants({ className, size, variant })}
+        ref={ref}
+        type={type ?? "button"}
+        {...props}
+      >
+        {children}
+      </button>
+    );
+  }
+);
+
+Button.displayName = "Button";
+
+export { Button, buttonVariants };
