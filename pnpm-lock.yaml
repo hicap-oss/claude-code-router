@@ -149,7 +149,7 @@ importers:
         version: 1.0.22
       undici:
         specifier: ^7.10.0
-        version: 7.24.0
+        version: 7.29.0
       uuid:
         specifier: ^11.1.0
         version: 11.1.0
@@ -7497,8 +7497,8 @@ packages:
   undici-types@7.14.0:
     resolution: {integrity: sha512-QQiYxHuyZ9gQUIrmPo3IA+hUl4KYk8uSA7cHrcKd/l3p1OTpZcM0Tbp9x7FAtXdAYhlasd60ncPpgu6ihG6TOA==}
 
-  undici@7.24.0:
-    resolution: {integrity: sha512-jxytwMHhsbdpBXxLAcuu0fzlQeXCNnWdDyRHpvWsUl8vd98UwYdl9YTyn8/HcpcJPC3pwUveefsa3zTxyD/ERg==}
+  undici@7.29.0:
+    resolution: {integrity: sha512-IDxfleLmmbSskfWSUATiN1nfn2rDuvnMOqb5CWR92iIfojA0Ud+ulOAAEQ57LPr9rWmsreUyf5lwyao+7GNNVw==}
     engines: {node: '>=20.18.1'}
 
   unicode-canonical-property-names-ecmascript@2.0.1:
@@ -9682,7 +9682,7 @@ snapshots:
 
   '@docusaurus/react-loadable@6.0.0(react@18.3.1)':
     dependencies:
-      '@types/react': 18.3.27
+      '@types/react': 19.3.0
       react: 18.3.1
 
   '@docusaurus/theme-classic@3.9.2(@types/react@18.3.27)(csso@5.0.5)(debug@4.4.3(supports-color@8.1.1))(esbuild@0.25.10)(lightningcss@1.30.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(supports-color@8.1.1)(typescript@5.9.3)':
@@ -11316,7 +11316,7 @@ snapshots:
   '@types/react-router@5.1.20':
     dependencies:
       '@types/history': 4.7.11
-      '@types/react': 18.3.27
+      '@types/react': 19.3.0
 
   '@types/react@18.3.27':
     dependencies:
@@ -16226,7 +16226,7 @@ snapshots:
   terser@5.44.1:
     dependencies:
       '@jridgewell/source-map': 0.3.11
-      acorn: 8.15.0
+      acorn: 8.18.0
       commander: 2.20.3
       source-map-support: 0.5.21
 
@@ -16366,7 +16366,7 @@ snapshots:
 
   undici-types@7.14.0: {}
 
-  undici@7.24.0: {}
+  undici@7.29.0: {}
 
   unicode-canonical-property-names-ecmascript@2.0.1: {}
 
