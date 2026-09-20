@@ -224,3 +224,44 @@ test("gateway sanitizer hook does not forward reverse proxy metadata to provider
     "x-custom-provider-header": "custom-value"
   });
 });
+
+test("Hicap provider requests authenticate with an api-key header instead of bearer auth", () => {
+  const [hook] = createGatewayPlugin().providerHooks;
+  const result = hook.transformRequest({
+    targetProviderConfig: {
+      apikey: "hicap-test-key",
+      baseurl: "https://api.hicap.ai/v1",
+      type: "openai_chat_completions"
+    },
+    upstreamRequest: {
+      body: { model: "claude-sonnet-4.5" },
+      headers: { authorization: "Bearer hicap-test-key", "content-type": "application/json" },
+      method: "POST",
+      url: "https://api.hicap.ai/v1/chat/completions"
+    }
+  }).value;
+
+  assert.equal(result.headers.authorization, undefined);
+  assert.equal(result.headers["api-key"], "hicap-test-key");
+  assert.equal(result.headers["content-type"], "application/json");
+});
+
+test("Hicap api-key rewriting only applies to the official Hicap endpoint", () => {
+  const [hook] = createGatewayPlugin().providerHooks;
+  const result = hook.transformRequest({
+    targetProviderConfig: {
+      apikey: "hicap-test-key",
+      baseurl: "https://proxy.example.com/v1",
+      type: "openai_chat_completions"
+    },
+    upstreamRequest: {
+      body: { model: "claude-sonnet-4.5" },
+      headers: { authorization: "Bearer hicap-test-key" },
+      method: "POST",
+      url: "https://proxy.example.com/v1/chat/completions"
+    }
+  }).value;
+
+  assert.equal(result.headers.authorization, "Bearer hicap-test-key");
+  assert.equal(result.headers["api-key"], undefined);
+});

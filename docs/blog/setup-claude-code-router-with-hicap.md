@@ -25,7 +25,16 @@ This installs both `claude` and `ccr` CLI tools globally.
 
 ## Configuration
 
-Create or edit `~/.claude-code-router/config.json`:
+Hicap is configured by default: a fresh Claude Code Router install already contains a
+`hicap` provider pointing at `https://api.hicap.ai/v1`, so the only required step is
+exporting your key.
+
+```shell
+export HICAP_API_KEY="your-hicap-api-key"
+```
+
+To write the provider out explicitly, or to edit an existing
+`~/.claude-code-router/config.json`, use this shape:
 
 ```json
 {
@@ -33,14 +42,12 @@ Create or edit `~/.claude-code-router/config.json`:
   "LOG_LEVEL": "debug",
   "HOST": "127.0.0.1",
   "PORT": 3456,
-  "APIKEY": "$HICAP_API_KEY",
+  "APIKEY": "",
   "API_TIMEOUT_MS": "600000",
-  "transformers": [
-    { "path": "~/.claude-code-router/hicap-transformer.js" }
-  ],
   "Providers": [
     {
       "name": "hicap",
+      "type": "openai_chat_completions",
       "api_base_url": "https://api.hicap.ai/v1/chat/completions",
       "api_key": "$HICAP_API_KEY",
       "models": [
@@ -51,8 +58,7 @@ Create or edit `~/.claude-code-router/config.json`:
         "gpt-5.1",
         "gemini-3-pro-preview",
         "gemini-3-flash-preview"
-      ],
-      "transformer": { "use": ["hicap"] }
+      ]
     }
   ],
   "Router": {
@@ -69,12 +75,15 @@ Create or edit `~/.claude-code-router/config.json`:
 
 ### Configuration Options
 
+Hicap speaks the OpenAI chat completions protocol, so `type` is
+`openai_chat_completions`. The provider base URL is `https://api.hicap.ai/v1`, and
+`api_base_url` takes the full chat completions endpoint under it.
+
 | Option | Description |
 |--------|-------------|
-| `APIKEY` | Your Hicap API key (supports `$ENV_VAR` interpolation) |
+| `APIKEY` | Optional key that local clients must send to the router itself (not your Hicap key) |
 | `API_TIMEOUT_MS` | Request timeout in milliseconds |
-| `transformers` | Array of custom transformer paths |
-| `Providers` | Provider configurations with name, URL, key, and models |
+| `Providers` | Provider configurations with name, protocol, URL, key, and models |
 | `Router` | Model routing rules for different task types |
 
 ### Router Options
@@ -89,48 +98,13 @@ Create or edit `~/.claude-code-router/config.json`:
 | `webSearch` | Web search tasks |
 | `image` | Image-related tasks |
 
-## Hicap Transformer
+## Authentication
 
-Create `~/.claude-code-router/hicap-transformer.js`:
-
-```js
-module.exports = class HicapTransformer {
-  static name = "hicap";
-  name = "hicap";
-
-  async transformRequestIn(request, provider, context) {
-    return {
-      body: request,
-      config: {
-        headers: {
-          "api-key": provider.apiKey,
-          Authorization: undefined,
-          authorization: undefined,
-        },
-      },
-    };
-  }
-
-  async auth(request, provider, context) {
-    return {
-      body: request,
-      config: {
-        headers: {
-          "api-key": provider.apiKey,
-          Authorization: undefined,
-          authorization: undefined,
-        },
-      },
-    };
-  }
-
-  async transformResponseOut(response) {
-    return response;
-  }
-};
-```
-
-This transformer injects the Hicap API key via the `api-key` header.
+Hicap authenticates with an `api-key` request header instead of a bearer
+`Authorization` header. Claude Code Router handles this at the provider boundary:
+requests routed to `api.hicap.ai` have the provider credential placed in the
+`api-key` header and the bearer `Authorization` header removed. No custom
+transformer file is required.
 
 ## Usage
 
@@ -178,8 +152,8 @@ Via Hicap, you have access to:
 
 ## Troubleshooting
 
-1. **API Key Issues**: Ensure `HICAP_API_KEY` environment variable is set, or replace `$HICAP_API_KEY` with your actual key in config
-2. **Transformer Not Found**: Verify the path in `transformers` array is correct
+1. **API Key Issues**: Ensure the `HICAP_API_KEY` environment variable is set, or replace `$HICAP_API_KEY` with your actual key in config
+2. **401 Unauthorized**: Confirm `api_base_url` points at `https://api.hicap.ai/v1/chat/completions` so the `api-key` header is applied
 3. **Connection Errors**: Check that `ccr start` is running and port 3456 is available
 
 ---

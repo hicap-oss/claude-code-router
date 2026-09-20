@@ -5,6 +5,7 @@ import type { ResponsesSessionAffinityInput } from "@ccr/core/gateway/core-runti
 import { applyResponsesToolStrictness } from "@ccr/core/gateway/core-runtime/responses-tool-strictness";
 import type { ResponsesToolStrictnessInput } from "@ccr/core/gateway/core-runtime/responses-tool-strictness";
 import { sdkCompatibleTokenHeaderNames } from "@ccr/core/gateway/internal/shared";
+import { hicapApiHostname, hicapAuthHeaderName } from "@ccr/core/providers/presets/hicap/index";
 
 type UpstreamRequest = {
   body: unknown;
@@ -69,6 +70,38 @@ const transportHeaderNames = new Set([
 
 const openCodeSessionFallbackId = randomUUID();
 const openCodeSessionHeaderMaxLength = 200;
+
+/**
+ * Hicap authenticates OpenAI-compatible requests with an `api-key` header and
+ * rejects requests that also carry a bearer `Authorization` header, so move the
+ * provider credential across at the final provider boundary.
+ */
+export function applyHicapAuthHeaders(
+  upstreamRequest: UpstreamRequest,
+  targetProviderConfig: ProviderPluginRequestInput["targetProviderConfig"]
+): UpstreamRequest {
+  const apiKey = targetProviderConfig?.apikey?.trim();
+  if (!apiKey || !urlMatchesHicap(upstreamRequest.url)) {
+    return upstreamRequest;
+  }
+
+  const headers: Record<string, string> = {};
+  for (const [name, value] of Object.entries(upstreamRequest.headers)) {
+    if (name.trim().toLowerCase() === "authorization") continue;
+    headers[name] = value;
+  }
+  headers[hicapAuthHeaderName] = apiKey;
+  return { ...upstreamRequest, headers };
+}
+
+function urlMatchesHicap(candidate: string): boolean {
+  try {
+    const url = new URL(candidate);
+    return url.protocol === "https:" && url.hostname === hicapApiHostname;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Body fields such as `metadata.user_id` are client-controlled and can carry
@@ -281,7 +314,7 @@ export function createGatewayPlugin() {
         }
         return {
           ok: true as const,
-          value: applyMetaTokenFloor(upstreamRequest)
+          value: applyMetaTokenFloor(applyHicapAuthHeaders(upstreamRequest, input.targetProviderConfig))
         };
       }
     }, {

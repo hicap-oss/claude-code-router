@@ -8,6 +8,7 @@ import {
   type ProxyRouteTarget
 } from "@ccr/core/contracts/app";
 import { defaultRequestLogBodyBytes } from "@ccr/core/observability/request-log-limits";
+import { createHicapDefaultProviderConfig } from "@ccr/core/providers/presets/hicap/index";
 
 export const DEFAULT_PROXY_TARGETS: ProxyRouteTarget[] = [
   { host: "api.anthropic.com", paths: ["/v1/messages", "/v1/messages/count_tokens"] },
@@ -15,7 +16,8 @@ export const DEFAULT_PROXY_TARGETS: ProxyRouteTarget[] = [
   { host: "generativelanguage.googleapis.com", paths: ["/v1beta/models", "/v1/models"] },
   { host: "openrouter.ai", paths: ["/api/v1/chat/completions", "/api/v1/responses", "/api/v1/models"] },
   { host: "api.deepseek.com", paths: ["/chat/completions", "/v1/chat/completions", "/models", "/v1/models"] },
-  { host: "api.mistral.ai", paths: ["/v1/chat/completions", "/v1/models"] }
+  { host: "api.mistral.ai", paths: ["/v1/chat/completions", "/v1/models"] },
+  { host: "api.hicap.ai", paths: ["/v1/chat/completions", "/v1/models"] }
 ];
 
 export type DefaultAppConfigOptions = {
@@ -31,7 +33,7 @@ export function createDefaultAppConfig(options: DefaultAppConfigOptions = {}): A
     CUSTOM_ROUTER_PATH: "",
     HOST: "127.0.0.1",
     PORT: 3456,
-    Providers: [],
+    Providers: [createHicapDefaultProviderConfig()],
     Router: {
       builtInRules: {
         "claude-code": {
